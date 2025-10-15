@@ -93,13 +93,8 @@ $$
 - **Énergie** : $E(\pi) = C_{max}(\pi) + \alpha \cdot \text{penalités} + \gamma \cdot P_{preemption}(\pi) + \eta \cdot P_{unicite}(\pi)$
 - **Schéma de refroidissement** : $T(g) = T_0 \cdot (0.95)^g$
 - **Probabilité d'acceptation** :
-$$
-P_{accept}(\pi, \pi') =
-\begin{cases}
-\displaystyle 1 & \text{ si } E(\pi') \leq E(\pi),\\
-\displaystyle \exp(-(E(\pi') - E(\pi))/T) & \text{ sinon }
-\end{cases}
-$$
+$P_{accept}(\pi, \pi') = 1 \text{ si } E(\pi') \le E(\pi), \text{ sinon } \exp(-(E(\pi') - E(\pi))/T)$
+
 
 
 
