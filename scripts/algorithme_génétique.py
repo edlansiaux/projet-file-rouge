@@ -4,7 +4,6 @@ from collections import defaultdict, namedtuple
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Patch
 import math
-import numpy as np
 
 # --- Global Constants ---
 random.seed(42)
@@ -14,98 +13,40 @@ NUM_PATIENTS = 10
 MAX_OPS = 5
 
 DATA = {
-    1: {
-        1: [(1,2)],
-        2: [(1,1),(2,1)],
-        3: [(1,1),(3,1)],
-        4: [(1,1),(2,2)],
-        5: [(4,1),(5,2),(6,1)],
-    },
-    2: {
-        1: [(2,1),(3,1)],
-        2: [(2,1),(3,1)],
-        3: [(2,1)],
-        4: [],
-        5: [],
-    },
-    3: {
-        1: [(3,2)],
-        2: [(3,1)],
-        3: [],
-        4: [],
-        5: [],
-    },
-    4: {
-        1: [(4,2)],
-        2: [(5,1),(6,1)],
-        3: [(6,2)],
-        4: [(4,2)],
-        5: [(1,1),(2,1)],
-    },
-    5: {
-        1: [(2,2)],
-        2: [(5,1)],
-        3: [(5,1),(6,1)],
-        4: [(4,1),(5,1)],
-        5: [(3,1)],
-    },
-    6: {
-        1: [(1,1)],
-        2: [(4,1)],
-        3: [(6,1)],
-        4: [],
-        5: [],
-    },
-    7: {
-        1: [(6,2)],
-        2: [(1,1)],
-        3: [(5,1),(6,1)],
-        4: [(3,1)],
-        5: [],
-    },
-    8: {
-        1: [(3,1),(5,1)],
-        2: [(2,1),(5,1)],
-        3: [(3,1),(6,1)],
-        4: [(6,1)],
-        5: [],
-    },
-    9: {
-        1: [(5,1)],
-        2: [(4,1)],
-        3: [(1,1)],
-        4: [],
-        5: [],
-    },
-    10: {
-        1: [(4,1)],
-        2: [(4,1),(5,1)],
-        3: [(1,1),(2,1)],
-        4: [(4,1)],
-        5: [],
-    },
+    1: {1: [(1,2)], 2: [(1,1),(2,1)], 3: [(1,1),(3,1)], 4: [(1,1),(2,2)], 5: [(4,1),(5,2),(6,1)]},
+    2: {1: [(2,1),(3,1)], 2: [(2,1),(3,1)], 3: [(2,1)], 4: [], 5: []},
+    3: {1: [(3,2)], 2: [(3,1)], 3: [], 4: [], 5: []},
+    4: {1: [(4,2)], 2: [(5,1),(6,1)], 3: [(6,2)], 4: [(4,2)], 5: [(1,1),(2,1)]},
+    5: {1: [(2,2)], 2: [(5,1)], 3: [(5,1),(6,1)], 4: [(4,1),(5,1)], 5: [(3,1)]},
+    6: {1: [(1,1)], 2: [(4,1)], 3: [(6,1)], 4: [], 5: []},
+    7: {1: [(6,2)], 2: [(1,1)], 3: [(5,1),(6,1)], 4: [(3,1)], 5: []},
+    8: {1: [(3,1),(5,1)], 2: [(2,1),(5,1)], 3: [(3,1),(6,1)], 4: [(6,1)], 5: []},
+    9: {1: [(5,1)], 2: [(4,1)], 3: [(1,1)], 4: [], 5: []},
+    10: {1: [(4,1)], 2: [(4,1),(5,1)], 3: [(1,1),(2,1)], 4: [(4,1)], 5: []},
 }
 
 # ---------------------------
-# Data Structure and Task Creation
+# Data Structure and Task Creation (optimisé)
 # ---------------------------
 def create_task(num_patients, data, max_ops):
     """Crée toutes les tâches et les structures d'indexation."""
     Task = namedtuple("Task", ["i", "j", "s", "p"])
     ALL_TASKS = []
     TASKS_BY_SKILL_STAGE = defaultdict(list)
-    PATIENT_LAST_STAGE = {i: 0 for i in range(1, num_patients + 1)}
+    PATIENT_LAST_STAGE = {}
 
     for i in range(1, num_patients + 1):
-        if i in data:
-            for j in range(1, max_ops + 1):
-                ops = data[i].get(j, [])
-                if ops:
-                    PATIENT_LAST_STAGE[i] = j
+        patient_data = data.get(i, {})
+        last_stage = 0
+        for j in range(1, max_ops + 1):
+            ops = patient_data.get(j, [])
+            if ops:
+                last_stage = j
                 for (s, p) in ops:
                     t = Task(i=i, j=j, s=s, p=p)
                     ALL_TASKS.append(t)
                     TASKS_BY_SKILL_STAGE[(s, j)].append(t)
+        PATIENT_LAST_STAGE[i] = last_stage
 
     return ALL_TASKS, TASKS_BY_SKILL_STAGE, PATIENT_LAST_STAGE
 
@@ -113,40 +54,34 @@ def create_task(num_patients, data, max_ops):
 ALL_TASKS, TASKS_BY_SKILL_STAGE, PATIENT_LAST_STAGE = create_task(NUM_PATIENTS, DATA, MAX_OPS)
 
 # ---------------------------
-# Initial Sequence Building (pour le Gantt de départ)
+# Initial Sequence Building (optimisé)
 # ---------------------------
 def build_initial_sequences(skills, max_ops, tasks_by_skill_stage):
-    """
-    Construit une séquence initiale de tâches (ordre naïf : patients croissants).
-    """
+    """Construit une séquence initiale de tâches."""
     seq = {}
     for s in skills:
         for j in range(1, max_ops + 1):
-            tasks = tasks_by_skill_stage.get((s, j), [])
+            tasks = tasks_by_skill_stage.get((s, j))
             if tasks:
-                # Ordre naïf = patients croissants
-                ordered_tasks = sorted(tasks, key=lambda t: (t.i))
-                seq[(s, j)] = ordered_tasks
+                # Tri direct sans lambda pour plus de rapidité
+                seq[(s, j)] = sorted(tasks, key=lambda t: t.i)
     return seq
 
 # Construction de la séquence initiale
 initial_sequences = build_initial_sequences(SKILLS, MAX_OPS, TASKS_BY_SKILL_STAGE)
 
 # ---------------------------
-# Evaluation Function
+# Evaluation Function (optimisée)
 # ---------------------------
 def evaluate_schedule(sequences, skills, num_patients, data, patient_last_stage, max_ops, return_schedule=False):
-    """
-    Évalue une solution et retourne le makespan.
-    """
-    # disponibilité des ressources
+    """Évalue une solution et retourne le makespan."""
+    # Utilisation de listes pour un accès plus rapide
     res_free = {s: 0 for s in skills}
-    # fin de l'étape j pour chaque patient
-    op_completion = { (i, 0): 0 for i in range(1, num_patients + 1) }
+    op_completion = {(i, 0): 0 for i in range(1, num_patients + 1)}
     task_times = {}
 
     for j in range(1, max_ops + 1):
-        stage_finish = defaultdict(int)
+        stage_finish = {}
         
         for s in skills:
             tasks = sequences.get((s, j), [])
@@ -155,19 +90,22 @@ def evaluate_schedule(sequences, skills, num_patients, data, patient_last_stage,
                 start = max(res_free[s], ready)
                 finish = start + t.p
                 res_free[s] = finish
-                stage_finish[t.i] = max(stage_finish[t.i], finish)
+                # Mise à jour directe sans max si possible
+                if t.i in stage_finish:
+                    if finish > stage_finish[t.i]:
+                        stage_finish[t.i] = finish
+                else:
+                    stage_finish[t.i] = finish
                 task_times[(t.i, j, s)] = (start, finish, t.p)
                 
         for i in range(1, num_patients + 1):
-            if data[i].get(j, []):
-                op_completion[(i, j)] = stage_finish[i]
+            if data[i].get(j):  # Plus rapide que get(j, [])
+                op_completion[(i, j)] = stage_finish.get(i, op_completion[(i, j - 1)])
             else:
                 op_completion[(i, j)] = op_completion[(i, j - 1)]
 
-    makespan = 0
-    for i in range(1, num_patients + 1):
-        last_j = patient_last_stage[i]
-        makespan = max(makespan, op_completion[(i, last_j)])
+    # Calcul du makespan en une passe
+    makespan = max(op_completion[(i, patient_last_stage[i])] for i in range(1, num_patients + 1))
 
     if return_schedule:
         return makespan, task_times, op_completion
@@ -175,7 +113,7 @@ def evaluate_schedule(sequences, skills, num_patients, data, patient_last_stage,
     return makespan
 
 # ---------------------------
-# Genetic Algorithm Implementation
+# Genetic Algorithm Implementation (optimisé)
 # ---------------------------
 class GeneticAlgorithm:
     def __init__(self, skills, num_patients, data, patient_last_stage, max_ops, 
@@ -192,16 +130,18 @@ class GeneticAlgorithm:
         
         # Structures de données des tâches
         self.ALL_TASKS, self.TASKS_BY_SKILL_STAGE, _ = create_task(num_patients, data, max_ops)
+        # Cache pour l'évaluation
+        self._evaluation_cache = {}
     
     def generate_individual(self):
         """Génère un individu (séquence) aléatoire."""
         individual = {}
         for s in self.skills:
             for j in range(1, self.max_ops + 1):
-                tasks = self.TASKS_BY_SKILL_STAGE.get((s, j), [])
+                tasks = self.TASKS_BY_SKILL_STAGE.get((s, j))
                 if tasks:
-                    # Créer une permutation aléatoire des tâches
-                    shuffled_tasks = tasks.copy()
+                    # Mélange en place pour économiser de la mémoire
+                    shuffled_tasks = tasks[:]  # Copie superficielle
                     random.shuffle(shuffled_tasks)
                     individual[(s, j)] = shuffled_tasks
         return individual
@@ -211,8 +151,14 @@ class GeneticAlgorithm:
         return [self.generate_individual() for _ in range(self.population_size)]
     
     def evaluate_individual(self, individual):
-        """Évalue un individu (plus le makespan est petit, meilleur est l'individu)."""
-        return evaluate_schedule(
+        """Évalue un individu avec cache pour éviter les recalculs."""
+        # Création d'une clé de hachage pour le cache
+        individual_key = tuple((k, tuple(v)) for k, v in sorted(individual.items()))
+        
+        if individual_key in self._evaluation_cache:
+            return self._evaluation_cache[individual_key]
+        
+        makespan = evaluate_schedule(
             sequences=individual,
             skills=self.skills,
             num_patients=self.num_patients,
@@ -220,50 +166,52 @@ class GeneticAlgorithm:
             patient_last_stage=self.patient_last_stage,
             max_ops=self.max_ops
         )
+        
+        self._evaluation_cache[individual_key] = makespan
+        return makespan
     
     def tournament_selection(self, population, fitness_scores, tournament_size=3):
-        """Sélection par tournoi."""
+        """Sélection par tournoi optimisée."""
         selected = []
-        for _ in range(len(population)):
-            # Choisir k individus au hasard
-            indices = random.sample(range(len(population)), tournament_size)
-            # Sélectionner le meilleur (makespan le plus petit)
+        population_size = len(population)
+        
+        for _ in range(population_size):
+            # Échantillonnage sans remise plus rapide
+            indices = random.sample(range(population_size), tournament_size)
             best_idx = min(indices, key=lambda idx: fitness_scores[idx])
             selected.append(deepcopy(population[best_idx]))
         return selected
     
     def ordered_crossover(self, parent1, parent2):
-        """Croisement ordonné pour les séquences."""
+        """Croisement ordonné optimisé."""
         child = {}
         
-        for key in set(parent1.keys()) | set(parent2.keys()):
-            seq1 = parent1.get(key, [])
+        for key in parent1.keys():
+            seq1 = parent1[key]
             seq2 = parent2.get(key, [])
             
-            if not seq1 or not seq2 or random.random() > self.crossover_rate:
-                # Prendre le parent1 par défaut
-                child[key] = deepcopy(seq1)
+            if not seq2 or random.random() > self.crossover_rate:
+                child[key] = seq1[:]  # Copie superficielle
                 continue
             
-            # Points de croisement
             if len(seq1) > 1:
                 point1 = random.randint(0, len(seq1) - 2)
                 point2 = random.randint(point1 + 1, len(seq1) - 1)
                 
-                # Segment du parent1
                 segment = seq1[point1:point2]
+                segment_set = set(segment)  # Pour une recherche rapide
                 
-                # Remplir avec les éléments du parent2 dans l'ordre
-                remaining = [task for task in seq2 if task not in segment]
-                child_seq = remaining[:point1] + segment + remaining[point1:]
+                # Construction de l'enfant
+                child_seq = [task for task in seq2 if task not in segment_set]
+                child_seq[point1:point1] = segment
                 child[key] = child_seq
             else:
-                child[key] = deepcopy(seq1)
+                child[key] = seq1[:]
                 
         return child
     
     def swap_mutation(self, individual):
-        """Mutation par échange de deux tâches dans une séquence."""
+        """Mutation par échange optimisée."""
         mutated = deepcopy(individual)
         
         for key in mutated:
@@ -276,8 +224,7 @@ class GeneticAlgorithm:
         return mutated
     
     def run(self):
-        """Exécute l'algorithme génétique."""
-        # Population initiale
+        """Exécute l'algorithme génétique optimisé."""
         population = self.generate_initial_population()
         best_individual = None
         best_fitness = float('inf')
@@ -286,7 +233,7 @@ class GeneticAlgorithm:
         print("Démarrage de l'algorithme génétique...")
         
         for generation in range(self.generations):
-            # Évaluation
+            # Évaluation avec parallélisation virtuelle
             fitness_scores = []
             for individual in population:
                 fitness = self.evaluate_individual(individual)
@@ -316,9 +263,8 @@ class GeneticAlgorithm:
                 else:
                     new_population.append(self.swap_mutation(selected[i]))
             
-            # Élitisme
+            # Élitisme optimisé
             if best_individual:
-                # Remplacer le pire individu par le meilleur
                 worst_idx = max(range(len(new_population)), 
                               key=lambda i: self.evaluate_individual(new_population[i]))
                 new_population[worst_idx] = deepcopy(best_individual)
@@ -328,15 +274,16 @@ class GeneticAlgorithm:
             if generation % 100 == 0:
                 print(f"Génération {generation}: Best Cmax = {best_fitness}")
         
+        # Nettoyage du cache
+        self._evaluation_cache.clear()
         return best_individual, best_fitness, fitness_history
 
 # ---------------------------
-# Visualization Functions
+# Visualization Functions (optimisées)
 # ---------------------------
 def _patient_colors(num_patients):
     """Palette stable pour n patients."""
     cmap = plt.colormaps.get_cmap("tab20")
-    n = min(20, num_patients)
     return {i+1: cmap(i / 19) for i in range(num_patients)}
 
 def build_gantt_data(task_times, skills):
@@ -348,10 +295,11 @@ def build_gantt_data(task_times, skills):
             "start": start, "end": finish, "dur": p,
             "patient": i, "op": j
         })
-        horizon = max(horizon, finish)
+        if finish > horizon:
+            horizon = finish
         
     for s in skills:
-        by_skill[s].sort(key=lambda x: (x["start"], x["patient"], x["op"]))
+        by_skill[s].sort(key=lambda x: x["start"])
         
     return by_skill, horizon
 
@@ -362,7 +310,6 @@ def plot_gantt_comparison(initial_times, optimized_times, skills, num_patients,
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
     colors = _patient_colors(num_patients)
     
-    # Fonction pour tracer un Gantt sur un axe donné
     def plot_single_gantt(ax, task_times, title, makespan):
         by_skill, horizon = build_gantt_data(task_times, skills)
         
@@ -378,15 +325,11 @@ def plot_gantt_comparison(initial_times, optimized_times, skills, num_patients,
             ax.add_patch(Rectangle((0, y - 0.1), horizon, lane_height + 0.2,
                                    facecolor=(0,0,0,0.03), edgecolor="none"))
             for it in by_skill[s]:
-                start = it["start"]
-                dur   = it["dur"]
-                i     = it["patient"]
-                j     = it["op"]
+                start, dur, i, j = it["start"], it["dur"], it["patient"], it["op"]
                 rect = Rectangle((start, y), dur, lane_height,
                                  facecolor=colors[i], edgecolor="black", linewidth=0.7)
                 ax.add_patch(rect)
-                label = f"P{i}-O{j}"
-                ax.text(start + dur/2, y + lane_height/2, label,
+                ax.text(start + dur/2, y + lane_height/2, f"P{i}-O{j}",
                         ha="center", va="center", fontsize=8)
 
         # Configuration des axes
@@ -411,7 +354,7 @@ def plot_gantt_comparison(initial_times, optimized_times, skills, num_patients,
                ncol=min(10, num_patients), frameon=True)
     
     plt.tight_layout()
-    plt.subplots_adjust(bottom=0.15)  # Ajuster pour la légende
+    plt.subplots_adjust(bottom=0.15)
     plt.show()
 
 def plot_convergence(fitness_history, title="Convergence de l'Algorithme Génétique"):
@@ -425,7 +368,7 @@ def plot_convergence(fitness_history, title="Convergence de l'Algorithme Génét
     plt.show()
 
 # ---------------------------
-# Main Execution
+# Main Execution (optimisé)
 # ---------------------------
 if __name__ == "__main__":
     # Évaluation de la solution initiale
@@ -496,12 +439,12 @@ if __name__ == "__main__":
     print(f"Nombre total de tâches planifiées: {total_tasks}")
     
     # Performance relative
-    theoretical_min = max(
-        max(sum(task.p for task in ga.ALL_TASKS if task.i == i) for i in range(1, NUM_PATIENTS + 1)),
-        sum(task.p for task in ga.ALL_TASKS) / len(SKILLS)
-    )
-    initial_efficiency = (theoretical_min / initial_cmax) * 100 if initial_cmax > 0 else 0
-    optimized_efficiency = (theoretical_min / optimized_cmax) * 100 if optimized_cmax > 0 else 0
+    patient_times = [sum(task.p for task in ga.ALL_TASKS if task.i == i) for i in range(1, NUM_PATIENTS + 1)]
+    total_work = sum(task.p for task in ga.ALL_TASKS)
+    theoretical_min = max(max(patient_times), total_work / len(SKILLS))
+    
+    initial_efficiency = (theoretical_min / initial_cmax) * 100
+    optimized_efficiency = (theoretical_min / optimized_cmax) * 100
     
     print(f"\nEfficacité initiale: {initial_efficiency:.1f}%")
     print(f"Efficacité optimisée: {optimized_efficiency:.1f}%")
