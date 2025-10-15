@@ -21,7 +21,8 @@ $$
 
 Chaque opération $o_{ij}$ est caractérisée par :
 - Durée : $d_{ij} \in [1,2]$ unités de temps
-- Compétences requises : $\mathcal{C}_{ij} \subseteq \mathcal{C}$ avec $|\mathcal{C}_{ij}| \in [1,3]$
+- Compétences requises : $C_{ij}$ ⊆ C, avec $|C_{ij}| ∈ [1,3]$
+
 
 ## 2. Contraintes du Modèle
 
@@ -43,9 +44,7 @@ où :
 Soit $x_{ij}^k = 1$ si le médecin $k$ est assigné à l'opération $o_{ij}$, 0 sinon.
 
 **Contrainte de couverture des compétences** :
-$$
-\sum_{k=1}^{6} x_{ij}^k \cdot \mathbb{1}_{\{c_k \in \mathcal{C}_{ij}\}} = |\mathcal{C}_{ij}| \quad \forall i,j
-$$
+$\sum_{k=1}^{6} x_{ij}^{k} * 1_{c_{k} ∈ C_{ij}} = |C_{ij}|   ∀ i,j$
 
 **Contrainte de non-interruption pour un médecin** :
 Si $x_{ij}^k = 1$ et $d_{ij} = 2$, alors le médecin $k$ doit être assigné continûment pendant 2 unités de temps.
@@ -65,9 +64,7 @@ Les médecins peuvent intervenir :
 ### 2.4 Contrainte de Durée des Opérations
 
 Pour chaque opération $o_{ij}$ :
-$$
-c_{ij} = s_{ij} + d_{ij}
-$$
+$c_{ij} = s_{ij} + d_{ij}$
 
 ## 3. Fonction Objectif et Métriques
 
@@ -75,7 +72,7 @@ $$
 
 **Objectif principal** :
 $$
-\min C_{max} = \max_{i \in \{1,\ldots,10\}} c_{iK_i}
+\min C_{max} = \max_{i \in \{1...10\}} c_{iK_i}
 $$
 
 ### 3.2 Métriques Secondaires (pour analyse)
