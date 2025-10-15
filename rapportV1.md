@@ -71,9 +71,7 @@ $c_{ij} = s_{ij} + d_{ij}$
 ### 3.1 Critère Principal : Makespan (Cmax)
 
 **Objectif principal** :
-$$
-\min C_{max} = \max_{i \in \{1...10\}} c_{iK_i}
-$$
+$\min C_{max} = \max_{i=1}^{10} c_{i K_{i}}$
 
 ### 3.2 Métriques Secondaires (pour analyse)
 
@@ -125,12 +123,11 @@ $$
 - Énergie : $E(\pi) = C_{max}(\pi) + \alpha \cdot \text{penalités}$
 - Température : $T(g) = T_0 \cdot (0.95)^g$
 - Probabilité d'acceptation :
-$$
-P_{accept}(\pi, \pi') = \begin{cases}
+  
+$$P_{accept}(\pi, \pi') = \begin{cases}
 1 & \text{si } E(\pi') \leq E(\pi) \\
-\exp\left(-\frac{E(\pi') - E(\pi)}{T}\right) & \text{sinon}
-\end{cases}
-$$
+\exp\left(-\frac{E(\pi') - E(\pi)}{T}\right) & \text{sinon} \\
+\end{cases}$$
 
 #### Génération de voisins :
 - Échange de deux opérations non liées par précédence
@@ -161,12 +158,10 @@ avec $N = 35$ opérations (moyenne), $M = 6$ médecins, $L$ : taille liste tabou
 
 ### 5.2 Borne Inférieure Théorique
 
-$$
-C_{max}^* \geq \max\left\{
-\max_i \sum_{j=1}^{K_i} d_{ij},\ 
-\frac{\sum_{i=1}^{10} \sum_{j=1}^{K_i} d_{ij} \cdot |\mathcal{C}_{ij}|}{6}
-\right\}
-$$
+$$C_{\max}^* \geq \max{%
+  \max_i \sum_{j=1}^{K_i} d_{ij},\ 
+  \frac{\sum_{i=1}^{10} \sum_{j=1}^{K_i} d_{ij} \cdot |\mathcal{C}_{ij}|}{6}%
+}$$
 
 ### 5.3 Garanties de Convergence
 
