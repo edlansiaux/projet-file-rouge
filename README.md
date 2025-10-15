@@ -48,7 +48,7 @@ The objectives of this project are to:
 The repository is organized as follows:
 
 ```yaml
-project-file-rouge/
+red-thread-project/
 ├── docs/                   # Documentation (concepts, methodology, diagrams)
 ├── scripts/                # Utility scripts, simulation launchers
 ├── fil_rouge_SMA_V1.ipynb  # Main experimentation / demonstration Jupyter notebook
@@ -61,8 +61,8 @@ Basic setup to clone, install, and run the project:
 
 ```sh
 # 1. Clone the repository
-git clone https://github.com/edlansiaux/projet-file-rouge.git
-cd projet-file-rouge
+git clone https://github.com/edlansiaux/red-thread-project.git
+cd red-thread-project
 
 # 2. Create a virtual environment (recommended)
 python3 -m venv venv
