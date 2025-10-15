@@ -67,7 +67,30 @@ $$
 
 ## 5. Architecture de Résolution Intégrée
 
+```mermaid
+flowchart TD
+    %% Étape 1 : Génération des données
+    A[Génération Données] --> B[Vérification Contraintes]
+    A --> D[Patients 1-10]
 
+    %% Étape 2 : Vérification des contraintes
+    B --> C[Méta-heuristiques]
+    B --> E[Précédence + Ressources<br>Non-Préemption + Unicité Lancement]
+
+    %% Étape 3 : Optimisation
+    C --> F[GA / RS / RT]
+    F --> H[Optimisation]
+
+    %% Étape 4 : Évaluation & Vérification
+    D --> G[Évaluation Cmax]
+    E --> G
+    H --> I[Vérification Contraintes<br>Non-Préemption & Unicité]
+    
+    %% Étape 5 : Réparation si nécessaire
+    I -->|Violation| J[Réparation Solutions]
+    J --> H
+    I -->|Valide| G
+```
 
 ## 6. Implémentation des Méta-heuristiques
 
@@ -94,9 +117,6 @@ $$
 - **Schéma de refroidissement** : $T(g) = T_0 \cdot (0.95)^g$
 - **Probabilité d'acceptation** :
 $P_{accept}(\pi, \pi') = 1 \text{ si } E(\pi') \le E(\pi), \text{ sinon } \exp(-(E(\pi') - E(\pi))/T)$
-
-
-
 
 #### Génération de voisins respectant les contraintes :
 - Échange de blocs d'opérations complètes
@@ -153,18 +173,18 @@ $\sum_{i=1}^{10} \sum_{j=1}^{K_i} d_{ij} \cdot |C_{ij}| \leq 6 \cdot T_{max}$
 **Algorithme de réparation** :
 
 Pour chaque opération $o_{ij}$ fragmentée :
-Trouver la première période de disponibilité continue de durée $d_{ij}$
-Déplacer l'opération entière dans cette période
-Mettre à jour les dépendances
+- Trouver la première période de disponibilité continue de durée $d_{ij}$
+- Déplacer l'opération entière dans cette période
+- Mettre à jour les dépendances
 
 ### 8.2 Violation d'Unicité de Lancement
 
 **Algorithme de réparation** :
 
 Pour chaque opération $o_{ij}$ dupliquée :
-Identifier toutes les instances sauf la première
-Supprimer les instances dupliquées
-Réaffecter les ressources libérées
+- Identifier toutes les instances sauf la première
+- Supprimer les instances dupliquées
+- Réaffecter les ressources libérées
 
 ### 8.3 Violation Combinée
 
