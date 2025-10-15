@@ -113,6 +113,26 @@ def create_task(num_patients, data, max_ops):
 ALL_TASKS, TASKS_BY_SKILL_STAGE, PATIENT_LAST_STAGE = create_task(NUM_PATIENTS, DATA, MAX_OPS)
 
 # ---------------------------
+# Initial Sequence Building (pour le Gantt de départ)
+# ---------------------------
+def build_initial_sequences(skills, max_ops, tasks_by_skill_stage):
+    """
+    Construit une séquence initiale de tâches (ordre naïf : patients croissants).
+    """
+    seq = {}
+    for s in skills:
+        for j in range(1, max_ops + 1):
+            tasks = tasks_by_skill_stage.get((s, j), [])
+            if tasks:
+                # Ordre naïf = patients croissants
+                ordered_tasks = sorted(tasks, key=lambda t: (t.i))
+                seq[(s, j)] = ordered_tasks
+    return seq
+
+# Construction de la séquence initiale
+initial_sequences = build_initial_sequences(SKILLS, MAX_OPS, TASKS_BY_SKILL_STAGE)
+
+# ---------------------------
 # Evaluation Function
 # ---------------------------
 def evaluate_schedule(sequences, skills, num_patients, data, patient_last_stage, max_ops, return_schedule=False):
@@ -335,59 +355,63 @@ def build_gantt_data(task_times, skills):
         
     return by_skill, horizon
 
-def plot_gantt(task_times, skills, num_patients, title="Gantt – Planning par compétence",
-               figsize=None, annotate=True, save_path=None, dpi=150):
-    """Affiche le diagramme de Gantt."""
-    by_skill, horizon = build_gantt_data(task_times, skills)
+def plot_gantt_comparison(initial_times, optimized_times, skills, num_patients, 
+                         initial_cmax, optimized_cmax, figsize=(15, 10)):
+    """Affiche les diagrammes de Gantt avant et après côte à côte."""
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
     colors = _patient_colors(num_patients)
+    
+    # Fonction pour tracer un Gantt sur un axe donné
+    def plot_single_gantt(ax, task_times, title, makespan):
+        by_skill, horizon = build_gantt_data(task_times, skills)
+        
+        lane_height = 0.8
+        y_gap = 0.6
+        y_positions = {s: (len(skills)-idx-1)*(lane_height + y_gap) for idx, s in enumerate(skills)}
+        ymin = -0.5
+        ymax = max(y_positions.values()) + lane_height + 0.5
 
-    if figsize is None:
-        figsize = (max(10, horizon * 0.6 / 3), 1.2 * len(skills) + 2)
-
-    fig, ax = plt.subplots(figsize=figsize)
-
-    lane_height = 0.8
-    y_gap = 0.6
-    y_positions = {s: (len(skills)-idx-1)*(lane_height + y_gap) for idx, s in enumerate(skills)}
-    ymin = -0.5
-    ymax = max(y_positions.values()) + lane_height + 0.5
-
-    # Dessin des rectangles
-    for s in skills:
-        y = y_positions[s]
-        ax.add_patch(Rectangle((0, y - 0.1), horizon, lane_height + 0.2,
-                               facecolor=(0,0,0,0.03), edgecolor="none"))
-        for it in by_skill[s]:
-            start = it["start"]
-            dur   = it["dur"]
-            i     = it["patient"]
-            j     = it["op"]
-            rect = Rectangle((start, y), dur, lane_height,
-                             facecolor=colors[i], edgecolor="black", linewidth=0.7)
-            ax.add_patch(rect)
-            if annotate:
+        # Dessin des rectangles
+        for s in skills:
+            y = y_positions[s]
+            ax.add_patch(Rectangle((0, y - 0.1), horizon, lane_height + 0.2,
+                                   facecolor=(0,0,0,0.03), edgecolor="none"))
+            for it in by_skill[s]:
+                start = it["start"]
+                dur   = it["dur"]
+                i     = it["patient"]
+                j     = it["op"]
+                rect = Rectangle((start, y), dur, lane_height,
+                                 facecolor=colors[i], edgecolor="black", linewidth=0.7)
+                ax.add_patch(rect)
                 label = f"P{i}-O{j}"
                 ax.text(start + dur/2, y + lane_height/2, label,
-                        ha="center", va="center", fontsize=9)
+                        ha="center", va="center", fontsize=8)
 
-    # Configuration des axes
-    ax.set_xlim(0, math.ceil(horizon) if horizon > 0 else 1)
-    ax.set_ylim(ymin, ymax)
-    ax.set_xlabel("Temps (unités)")
-    ax.set_yticks([y_positions[s] + lane_height/2 for s in skills])
-    ax.set_yticklabels([f"Skill {s}" for s in skills])
-    ax.set_title(title)
-    ax.grid(axis="x", linestyle="--", alpha=0.4)
-
-    # Légende
+        # Configuration des axes
+        ax.set_xlim(0, math.ceil(horizon) if horizon > 0 else 1)
+        ax.set_ylim(ymin, ymax)
+        ax.set_xlabel("Temps (unités)")
+        ax.set_yticks([y_positions[s] + lane_height/2 for s in skills])
+        ax.set_yticklabels([f"Skill {s}" for s in skills])
+        ax.set_title(f"{title}\nCmax = {makespan}")
+        ax.grid(axis="x", linestyle="--", alpha=0.4)
+    
+    # Tracer le Gantt initial
+    plot_single_gantt(ax1, initial_times, "Planification Initiale", initial_cmax)
+    
+    # Tracer le Gantt optimisé
+    plot_single_gantt(ax2, optimized_times, "Planification Optimisée", optimized_cmax)
+    
+    # Légende commune
     legend_handles = [Patch(facecolor=colors[i], edgecolor="black", label=f"Patient {i}") 
                      for i in range(1, num_patients + 1)]
-    ax.legend(handles=legend_handles, bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0.)
-
+    fig.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 0.05), 
+               ncol=min(10, num_patients), frameon=True)
+    
     plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path, dpi=dpi, bbox_inches="tight")
-        print(f"Gantt sauvegardé : {save_path}")
+    plt.subplots_adjust(bottom=0.15)  # Ajuster pour la légende
     plt.show()
 
 def plot_convergence(fitness_history, title="Convergence de l'Algorithme Génétique"):
@@ -404,6 +428,19 @@ def plot_convergence(fitness_history, title="Convergence de l'Algorithme Génét
 # Main Execution
 # ---------------------------
 if __name__ == "__main__":
+    # Évaluation de la solution initiale
+    print("=== ÉVALUATION DE LA SOLUTION INITIALE ===")
+    initial_cmax, initial_times, _ = evaluate_schedule(
+        sequences=initial_sequences,
+        skills=SKILLS,
+        num_patients=NUM_PATIENTS,
+        data=DATA,
+        patient_last_stage=PATIENT_LAST_STAGE,
+        max_ops=MAX_OPS,
+        return_schedule=True
+    )
+    print(f"Cmax initial: {initial_cmax}")
+    
     # Configuration de l'algorithme génétique
     ga = GeneticAlgorithm(
         skills=SKILLS,
@@ -421,10 +458,13 @@ if __name__ == "__main__":
     best_solution, best_cmax, history = ga.run()
     
     print(f"\n=== RÉSULTATS FINAUX ===")
+    print(f"Cmax initial: {initial_cmax}")
     print(f"Meilleur Cmax trouvé: {best_cmax}")
+    improvement = ((initial_cmax - best_cmax) / initial_cmax) * 100
+    print(f"Amélioration: {improvement:.2f}%")
     
     # Évaluation détaillée de la meilleure solution
-    makespan, task_times, op_completion = evaluate_schedule(
+    optimized_cmax, optimized_times, op_completion = evaluate_schedule(
         sequences=best_solution,
         skills=SKILLS,
         num_patients=NUM_PATIENTS,
@@ -434,17 +474,20 @@ if __name__ == "__main__":
         return_schedule=True
     )
     
-    print(f"Cmax vérifié: {makespan}")
+    print(f"Cmax vérifié: {optimized_cmax}")
     
-    # Affichage des résultats
-    plot_gantt(
-        task_times=task_times,
+    # Affichage des diagrammes de Gantt comparatifs
+    print("\n=== COMPARAISON VISUELLE ===")
+    plot_gantt_comparison(
+        initial_times=initial_times,
+        optimized_times=optimized_times,
         skills=SKILLS,
         num_patients=NUM_PATIENTS,
-        title=f"Gantt – Solution Optimale (Cmax={best_cmax})",
-        annotate=True
+        initial_cmax=initial_cmax,
+        optimized_cmax=optimized_cmax
     )
     
+    # Courbe de convergence
     plot_convergence(history)
     
     # Statistiques détaillées
@@ -452,8 +495,21 @@ if __name__ == "__main__":
     total_tasks = sum(len(tasks) for tasks in best_solution.values())
     print(f"Nombre total de tâches planifiées: {total_tasks}")
     
+    # Performance relative
+    theoretical_min = max(
+        max(sum(task.p for task in ga.ALL_TASKS if task.i == i) for i in range(1, NUM_PATIENTS + 1)),
+        sum(task.p for task in ga.ALL_TASKS) / len(SKILLS)
+    )
+    initial_efficiency = (theoretical_min / initial_cmax) * 100 if initial_cmax > 0 else 0
+    optimized_efficiency = (theoretical_min / optimized_cmax) * 100 if optimized_cmax > 0 else 0
+    
+    print(f"\nEfficacité initiale: {initial_efficiency:.1f}%")
+    print(f"Efficacité optimisée: {optimized_efficiency:.1f}%")
+    print(f"Amélioration d'efficacité: {optimized_efficiency - initial_efficiency:.1f}%")
+    print(f"Minimum théorique: {theoretical_min:.1f}")
+    
     # Temps de fin par patient
-    print("\nTemps de fin par patient:")
+    print("\nTemps de fin par patient (optimisé):")
     for i in range(1, NUM_PATIENTS + 1):
         last_stage = PATIENT_LAST_STAGE[i]
         finish_time = op_completion.get((i, last_stage), 0)
