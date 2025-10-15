@@ -189,9 +189,9 @@ $$C_{\max}^* \geq \max{%
 
 ### 7.1 Workflow d'Optimisation
 [Génération Données] → [Vérification Contraintes] → [Méta-heuristiques]
-↓ ↓ ↓
-[Patients 1-10] [Précédence + Ressources] [GA/RS/RT]
-↓ ↓ ↓
+↓                      ↓                          ↓
+[Patients 1-10]        [Précédence + Ressources]   [GA/RS/RT]
+↓                      ↓                          ↓
 [Évaluation Cmax] ←── [Réparation Solutions] ←── [Optimisation]
 ### 7.2 Gestion des Contraintes
 
