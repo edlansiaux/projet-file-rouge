@@ -1,312 +1,421 @@
 from copy import deepcopy
 import random
-from collections import defaultdict, namedtuple
+import math
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Patch
-import math
+from collections import defaultdict, namedtuple
+import time
 
-# --- Global Constants ---
-random.seed(42)
-
+# --- Global Constants (Reverting to original instance) ---
 SKILLS = [1, 2, 3, 4, 5, 6]
-NUM_PATIENTS = 10
-MAX_OPS = 5  # au plus 5 opérations
+NUM_PATIENTS = 10          # Reverted to 10
+MAX_OPS = 5          # Reverted to 5
 
+# --- Original Hardcoded Data ---
 DATA = {
+
     1: {
-        1: [(1,2)],
-        2: [(1,1),(2,1)],
-        3: [(1,1),(3,1)],
-        4: [(1,1),(2,2)],
-        5: [(4,1),(5,2),(6,1)],
+        1: [(1,2)], 2: [(1,1),(2,1)], 3: [(1,1),(3,1)],
+        4: [(1,1),(2,2)], 5: [(4,1),(5,2),(6,1)],
     },
     2: {
-        1: [(2,1),(3,1)],
-        2: [(2,1),(3,1)],
-        3: [(2,1)],
-        4: [],
-        5: [],
+        1: [(2,1),(3,1)], 2: [(2,1),(3,1)], 3: [(2,1)],
+        4: [], 5: [],
     },
     3: {
-        1: [(3,2)],
-        2: [(3,1)],
-        3: [],
-        4: [],
-        5: [],
+        1: [(3,2)], 2: [(3,1)], 3: [], 4: [], 5: [],
     },
     4: {
-        1: [(4,2)],
-        2: [(5,1),(6,1)],
-        3: [(6,2)],
-        4: [(4,2)],
-        5: [(1,1),(2,1)],
+        1: [(4,2)], 2: [(5,1),(6,1)], 3: [(6,2)],
+        4: [(4,2)], 5: [(1,1),(2,1)],
     },
     5: {
-        1: [(2,2)],
-        2: [(5,1)],
-        3: [(5,1),(6,1)],
-        4: [(4,1),(5,1)],
-        5: [(3,1)],
+        1: [(2,2)], 2: [(5,1)], 3: [(5,1),(6,1)],
+        4: [(4,1),(5,1)], 5: [(3,1)],
     },
     6: {
-        1: [(1,1)],
-        2: [(4,1)],
-        3: [(6,1)],
-        4: [],
-        5: [],
+        1: [(1,1)], 2: [(4,1)], 3: [(6,1)], 4: [], 5: [],
     },
     7: {
-        1: [(6,2)],
-        2: [(1,1)],
-        3: [(5,1),(6,1)],
-        4: [(3,1)],
-        5: [],
+        1: [(6,2)], 2: [(1,1)], 3: [(5,1),(6,1)],
+        4: [(3,1)], 5: [],
     },
     8: {
-        1: [(3,1),(5,1)],
-        2: [(2,1),(5,1)],
-        3: [(3,1),(6,1)],
-        4: [(6,1)],
-        5: [],
+        1: [(3,1),(5,1)], 2: [(2,1),(5,1)], 3: [(3,1),(6,1)],
+        4: [(6,1)], 5: [],
     },
     9: {
-        1: [(5,1)],
-        2: [(4,1)],
-        3: [(1,1)],
-        4: [],
-        5: [],
+        1: [(5,1)], 2: [(4,1)], 3: [(1,1)], 4: [], 5: [],
     },
     10: {
-        1: [(4,1)],
-        2: [(4,1),(5,1)],
-        3: [(1,1),(2,1)],
-        4: [(4,1)],
-        5: [],
+        1: [(4,1)], 2: [(4,1),(5,1)], 3: [(1,1),(2,1)],
+        4: [(4,1)], 5: [],
     },
 }
+
+# --- SA Parameters Adjusted for 10 Patients ---
+T_INITIAL_BASE = 100.0      # Base temp - Increased for more exploration initially
+ALPHA_FACTOR = 0.99     # Geometric decay factor - Increased for faster cooling
+RESET_INTERVAL = 5000    # Reset interval
+MAX_ITER = 50000     # Total iterations
 
 # ---------------------------
 # 1) Data Structure and Task Creation
 # ---------------------------
 def create_task(num_patients, data, max_ops):
-  """Crée toutes les tâches et les structures d'indexation."""
-  Task = namedtuple("Task", ["i", "j", "s", "p"])
-  ALL_TASKS = []
-  TASKS_BY_SKILL_STAGE = defaultdict(list)
-  PATIENT_LAST_STAGE = {i: 0 for i in range(1, num_patients + 1)}
+    """Crée toutes les tâches et les structures d'indexation."""
+    Task = namedtuple("Task", ["i", "j", "s", "p"])
+    ALL_TASKS = []
+    TASKS_BY_SKILL_STAGE = defaultdict(list)
+    PATIENT_LAST_STAGE = {i: 0 for i in range(1, num_patients + 1)}
 
-  for i in range(1, num_patients + 1):
-      if i in data:
-          for j in range(1, max_ops + 1):
-              ops = data[i].get(j, [])
-              if ops:
-                  PATIENT_LAST_STAGE[i] = j
-              for (s, p) in ops:
-                  t = Task(i=i, j=j, s=s, p=p)
-                  ALL_TASKS.append(t)
-                  TASKS_BY_SKILL_STAGE[(s, j)].append(t)
-                  
-  return ALL_TASKS, TASKS_BY_SKILL_STAGE, PATIENT_LAST_STAGE
+    for i in range(1, num_patients + 1):
+        if i in data:
+            for j in range(1, max_ops + 1):
+                ops = data[i].get(j, [])
+                if ops:
+                    PATIENT_LAST_STAGE[i] = j
+                for (s, p) in ops:
+                    t = Task(i=i, j=j, s=s, p=p)
+                    ALL_TASKS.append(t)
+                    TASKS_BY_SKILL_STAGE[(s, j)].append(t)
 
-# Execute task creation
+    return ALL_TASKS, TASKS_BY_SKILL_STAGE, PATIENT_LAST_STAGE
+
 ALL_TASKS, TASKS_BY_SKILL_STAGE, PATIENT_LAST_STAGE = create_task(NUM_PATIENTS, DATA, MAX_OPS)
 
 # ---------------------------
 # 2) Initial Sequence Building (Random Order)
 # ---------------------------
 def build_initial_sequences(skills, max_ops, tasks_by_skill_stage):
-    """
-    Construit une séquence initiale de tâches (ordre ALÉATOIRE) pour chaque paire (s, j).
-    """
+    """Construit une séquence initiale de tâches (ordre ALÉATOIRE)."""
     seq = {}
     for s in skills:
         for j in range(1, max_ops + 1):
             tasks = tasks_by_skill_stage.get((s, j), [])
             if not tasks:
                 continue
-            
-            # Ordre ALÉATOIRE
-            ordered_tasks = tasks[:]  
+
+            ordered_tasks = tasks[:]
             random.shuffle(ordered_tasks)
-                
+
             seq[(s, j)] = ordered_tasks
     return seq
 
 # ---------------------------
-# 3) Règle de Correction (Contrainte J < J+1 & Contiguïté)
+# 3) Evaluation Function (Fitness - Cmax)
 # ---------------------------
-def correct_sequence_order(current_sequences, num_patients, max_ops, skills):
+def evaluate_cmax(sequences, num_patients, patient_last_stage, max_ops, skills):
     """
-    Règle de correction: L'ordre inter-opération (J < J+1) est géré par l'évaluateur.
-    Ceci assure une séquence cohérente sur les ressources (s, j) en priorisant par Patient ID.
-    Ceci est la même règle que l'ordre intra-étape Patient ID croissant.
+    Calcule le Cmax à partir des séquences de tâches.
+    Contraintes:
+    1. Ressource (skill 's') disponible.
+    2. Ordre des opérations par patient (j-1 doit être terminé avant j).
     """
-    corrected_sequences = {}
-    
-    for s in skills:
-        for j in range(1, max_ops + 1):
-            tasks = current_sequences.get((s, j), [])
-            if not tasks:
-                continue
+    # Temps de fin pour chaque patient/étape (pour la contrainte de précédence)
+    patient_finish_time = defaultdict(lambda: 0) # Clé: (i, j) -> temps de fin
 
-            # Priorisation par Patient ID (i) croissant (ordre stable)
-            ordered_tasks = sorted(tasks, key=lambda t: t.i)
-            
-            corrected_sequences[(s, j)] = ordered_tasks
-            
-    return corrected_sequences
+    # Temps de fin pour chaque compétence/ressource (pour la contrainte de ressource)
+    resource_available_time = defaultdict(lambda: 0) # Clé: s -> temps de fin
+
+    cmax = 0
+
+    # Parcourez toutes les étapes j (de 1 à MAX_OPS)
+    for j in range(1, max_ops + 1):
+        # Parcourez toutes les ressources s
+        for s in skills:
+            # Obtenez la séquence pour (s, j)
+            sequence_key = (s, j)
+            if sequence_key in sequences:
+                tasks = sequences[sequence_key]
+
+                # Traitez chaque tâche dans l'ordre de la séquence
+                for task in tasks:
+                    i, j_current, s_current, p = task.i, task.j, task.s, task.p
+
+                    # 1. Contrainte de précédence: Attendre que l'étape précédente (j-1) soit terminée.
+                    # Si j > 1, on doit attendre le temps de fin de (i, j-1)
+                    required_previous_finish = patient_finish_time.get((i, j_current - 1), 0)
+
+                    # 2. Contrainte de ressource: Attendre que la ressource (s) soit disponible.
+                    required_resource_available = resource_available_time[s_current]
+
+                    # Le temps de début (start time) est le maximum des deux contraintes
+                    start_time = max(required_previous_finish, required_resource_available)
+
+                    # Temps de fin (finish time)
+                    finish_time = start_time + p
+
+                    # Mettre à jour les temps de fin
+                    patient_finish_time[(i, j_current)] = finish_time
+                    resource_available_time[s_current] = finish_time
+
+                    # Mettre à jour le Cmax
+                    cmax = max(cmax, finish_time)
+
+    # Remarque: Le Cmax est la dernière étape terminée pour tous les patients.
+    # Cmax = max(patient_finish_time.get((i, patient_last_stage[i]), 0) for i in range(1, num_patients + 1))
+    # Puisque nous parcourons toutes les tâches, le cmax simple est correct.
+
+    return cmax
+
+# ---------------------------
+# 4) Neighborhood Generation (Move)
+# ---------------------------
+def generate_neighbor(current_sequences, skills, max_ops):
+    """
+    Génère un état voisin en échangeant deux tâches au hasard.
+    Peut échanger:
+    1. Deux tâches dans la même séquence (skill, stage).
+    2. Deux tâches de stages différents mais du même skill.
+    """
+    new_sequences = deepcopy(current_sequences)
+
+    move_type = random.choice(["swap_within_stage", "swap_between_stages"])
+
+    if move_type == "swap_within_stage":
+        # Swap within the same skill, same stage (original move)
+        available_keys = [k for k, v in new_sequences.items() if len(v) >= 2]
+        if not available_keys:
+            return new_sequences
+
+        s, j = random.choice(available_keys)
+        tasks_list = new_sequences[(s, j)]
+
+        idx1, idx2 = random.sample(range(len(tasks_list)), 2)
+        tasks_list[idx1], tasks_list[idx2] = tasks_list[idx2], tasks_list[idx1]
+
+    elif move_type == "swap_between_stages":
+        # Swap between different stages, same skill
+        # Find skills that have tasks in at least two different stages
+        skills_with_multiple_stages = []
+        for s in skills:
+            stages_with_tasks = [j for j in range(1, max_ops + 1) if (s, j) in new_sequences and new_sequences[(s, j)]]
+            if len(stages_with_multiple_stages) >= 2:
+                skills_with_multiple_stages.append(s)
+
+        if not skills_with_multiple_stages:
+            # If no skill has tasks in multiple stages, fall back to swap within stage
+            return generate_neighbor(current_sequences, skills, max_ops) # Recursive call for simplicity
+
+        s = random.choice(skills_with_multiple_stages)
+        stages_with_tasks = [j for j in range(1, max_ops + 1) if (s, j) in new_sequences and new_sequences[(s, j)]]
+
+        # Choose two different stages for this skill
+        j1, j2 = random.sample(stages_with_tasks, 2)
+
+        list1 = new_sequences[(s, j1)]
+        list2 = new_sequences[(s, j2)]
+
+        # Choose one task from each stage
+        task_idx1 = random.choice(range(len(list1)))
+        task_idx2 = random.choice(range(len(list2)))
+
+        task1 = list1[task_idx1]
+        task2 = list2[task_idx2]
+
+        # Swap the tasks in the lists
+        list1[task_idx1] = task2._replace(j=j1) # Update stage of swapped task
+        list2[task_idx2] = task1._replace(j=j2) # Update stage of swapped task
+
+        new_sequences[(s, j1)] = list1
+        new_sequences[(s, j2)] = list2
 
 
-# --------------------------
-# 4) Voisinage pour le Recuit Simulé (Swap)
-# --------------------------
-def get_neighbor_swap(sequences, skills, max_ops):
-    """
-    Génère une solution voisine en échangeant deux tâches adjacentes 
-    dans une séquence (s, j) choisie aléatoirement.
-    """
-    new_sequences = deepcopy(sequences)
-    
-    # 1. Sélectionner une séquence (s, j) non vide au hasard
-    
-    valid_keys = [k for k, v in sequences.items() if len(v) >= 2]
-    if not valid_keys:
-        return None # Impossible de générer un voisin
-        
-    s, j = random.choice(valid_keys)
-    sequence = new_sequences[(s, j)]
-    
-    # 2. Choisir deux tâches adjacentes à échanger
-    idx = random.randint(0, len(sequence) - 2)
-    
-    # 3. Effectuer l'échange
-    sequence[idx], sequence[idx+1] = sequence[idx+1], sequence[idx]
-    
     return new_sequences
 
-# --------------------------
-# 5) Algorithme de Recuit Simulé
-# --------------------------
-def simulated_annealing(initial_sequences, skills, num_patients, data, patient_last_stage, max_ops, 
-                        T0=10.0, alpha=0.99, max_iter=5000):
-    """
-    Implémente le Recuit Simulé pour minimiser le Makespan.
-    """
-    
-    # Initialisation
-    current_sequences = initial_sequences
-    current_cost = evaluate_schedule(current_sequences, skills, num_patients, data, patient_last_stage, max_ops)
-    
+# ---------------------------
+# 5) Simulated Annealing Algorithm (SA)
+# ---------------------------
+def simulated_annealing(
+    t_initial_base, alpha_factor, reset_interval, max_iter,
+    skills, max_ops, tasks_by_skill_stage, patient_last_stage
+):
+    # 1. Initialisation
+    current_sequences = build_initial_sequences(skills, max_ops, tasks_by_skill_stage)
+    current_cmax = evaluate_cmax(current_sequences, NUM_PATIENTS, patient_last_stage, MAX_OPS, skills)
+
+    # Le SA est utilisé ici pour MINIMISER le CMAX
     best_sequences = deepcopy(current_sequences)
-    best_cost = current_cost
-    T = T0
-    
-    # Historique pour le suivi (optionnel)
-    history = [current_cost]
-    
-    for iteration in range(max_iter):
-        
-        # 1. Générer un voisin
-        neighbor_sequences = get_neighbor_swap(current_sequences, skills, max_ops)
-        if neighbor_sequences is None:
-            break
-            
-        # 2. Calculer le coût du voisin
-        neighbor_cost = evaluate_schedule(neighbor_sequences, skills, num_patients, data, patient_last_stage, max_ops)
-        
-        delta_E = neighbor_cost - current_cost
-        
-        # 3. Décision d'acceptation
-        if delta_E < 0:
-            # Meilleur que le courant : accepter
+    best_cmax = current_cmax
+
+    T = t_initial_base # Température initiale
+
+    history_cmax = []
+
+    print(f"Cmax Initial: {current_cmax}")
+
+    # 2. Boucle principale
+    for k in range(1, max_iter + 1):
+        # Reset de la température pour l'exploration (if necessary)
+        if k % reset_interval == 0:
+            T = t_initial_base  # Réchauffage
+
+        # 2.1 Générer un voisin
+        neighbor_sequences = generate_neighbor(current_sequences, skills, max_ops)
+        neighbor_cmax = evaluate_cmax(neighbor_sequences, NUM_PATIENTS, patient_last_stage, MAX_OPS, skills)
+
+        # 2.2 Calculer la différence d'énergie (objectif: minimiser Cmax)
+        # Delta = Cmax_voisin - Cmax_courant
+        delta = neighbor_cmax - current_cmax
+
+        # 2.3 Critère d'acceptation (Metropolis for Minimization)
+        # If the neighbor is better (delta < 0) or accepted by probability (exploration)
+        if delta < 0:
+            # The neighbor is better
+            current_cmax = neighbor_cmax
             current_sequences = neighbor_sequences
-            current_cost = neighbor_cost
-            
-            # Mettre à jour la meilleure solution globale
-            if current_cost < best_cost:
-                best_cost = current_cost
-                best_sequences = deepcopy(current_sequences)
-                
-        elif T > 0 and random.random() < math.exp(-delta_E / T):
-            # Moins bon, mais accepter avec une probabilité
-            current_sequences = neighbor_sequences
-            current_cost = neighbor_cost
-            
-        # 4. Refroidissement
-        T *= alpha
-        
-        history.append(current_cost)
-        
-        if iteration % 500 == 0:
-            # print(f"Iter {iteration}, T={T:.2f}, Current Cmax={current_cost}, Best Cmax={best_cost}")
-            pass
-        
-        # Condition d'arrêt si la température est trop basse ou le nombre d'itérations atteint
-        if T < 0.01:
+        elif T > 0:
+            # The neighbor is worse (delta > 0), accept with probability e^(-delta/T)
+            acceptance_prob = math.exp(-delta / T)
+            if random.random() < acceptance_prob:
+                current_cmax = neighbor_cmax
+                current_sequences = neighbor_sequences
+
+        # 2.4 Mettre à jour la meilleure solution trouvée
+        # NOTE: We MINIMIZE the Cmax, so < is the correct comparison
+        if current_cmax < best_cmax:
+            best_cmax = current_cmax
+            best_sequences = deepcopy(current_sequences)
+
+        # Check if target Cmax is reached
+        if best_cmax <= 11:
+            print(f"\n--- Target Cmax (11) reached at iteration {k} ---")
             break
 
-    return best_sequences, best_cost, history
+        # 2.5 Refroidissement (if T > 0)
+        if T > 0:
+            T *= alpha_factor
 
-# --------------------------
-# 6) Evaluation (construction du planning "par étapes")
-# --------------------------
-def evaluate_schedule(sequences, skills, num_patients, data, patient_last_stage, max_ops, return_schedule=False):
-    """
-    sequences: dict (s,j) -> liste ordonnée de Task
-    Calcule un planning non préemptif en respectant l'ordre des opérations (par étapes j=1..max_ops).
-    """
-    
-    # disponibilité des ressources (temps où la ressource s sera libre)
-    res_free = {s: 0 for s in skills}
-    # fin de l'étape j pour chaque patient, initialisé à 0 pour l'étape 0
-    op_completion = { (i, 0): 0 for i in range(1, num_patients + 1) }
-    # pour stocker les dates de chaque tâche
-    task_times = {}
+        history_cmax.append(current_cmax)
+
+        # Display progress
+        if k % 1000 == 0 or k == 1:
+             print(f"Iter {k}/{max_iter} | T={T:.4f} | Cmax Courant: {current_cmax} | Cmax Best: {best_cmax}")
+
+
+    print(f"\n--- Fin du Recuit Simulé ---")
+    print(f"Meilleur Cmax trouvé (Minimisation): {best_cmax}")
+
+    return best_sequences, best_cmax, history_cmax
+
+# ---------------------------
+# 6) Visualisation (Optionnel)
+# ---------------------------
+def plot_gantt(sequences, num_patients, patient_last_stage, max_ops, skills):
+    """Génère un graphique de Gantt."""
+    # Recalculer les temps de début/fin pour le tracé
+    patient_finish_time = defaultdict(lambda: 0)
+    resource_available_time = defaultdict(lambda: 0)
+    task_schedule = []
+
+    max_cmax = 0
+
+    # Couleurs pour les patients
+    colors = plt.colormaps['hsv'](range(num_patients + 1))
+
 
     for j in range(1, max_ops + 1):
-        stage_finish = defaultdict(int)
-        
         for s in skills:
-            tasks = sequences.get((s, j), [])
-            for t in tasks:
-                # ready: La tâche ne peut commencer qu'après la fin de l'étape précédente (J-1) du patient.
-                ready = op_completion[(t.i, j - 1)]
-                
-                # start: La tâche commence au plus tard entre la disponibilité de la ressource et la disponibilité du patient.
-                start = max(res_free[s], ready)
-                finish = start + t.p
-                
-                res_free[s] = finish
-                stage_finish[t.i] = max(stage_finish[t.i], finish)
-                task_times[(t.i, j, s)] = (start, finish, t.p)
-                
-        # Figer la fin de l'étape j pour tous les patients
-        for i in range(1, num_patients + 1):
-            if data[i].get(j, []):
-                op_completion[(i, j)] = stage_finish[i]
-            else:
-                op_completion[(i, j)] = op_completion[(i, j - 1)]
+            sequence_key = (s, j)
+            if sequence_key in sequences:
+                tasks = sequences[sequence_key]
+                for task in tasks:
+                    i, j_current, s_current, p = task.i, task.j, task.s, task.p
+                    required_previous_finish = patient_finish_time.get((i, j_current - 1), 0)
+                    required_resource_available = resource_available_time[s_current]
+                    start_time = max(required_previous_finish, required_resource_available)
+                    finish_time = start_time + p
 
+                    patient_finish_time[(i, j_current)] = finish_time
+                    resource_available_time[s_current] = finish_time
+                    max_cmax = max(max_cmax, finish_time)
 
-    # makespan = max fin de dernière étape existante par patient
-    makespan = 0
-    for i in range(1, num_patients + 1):
-        last_j = patient_last_stage[i]
-        makespan = max(makespan, op_completion[(i, last_j)])
+                    task_schedule.append({
+                        "s": s_current, "i": i, "j": j_current, "start": start_time, "duration": p, "color": colors[i]
+                    })
 
-    if return_schedule:
-        return makespan, task_times, op_completion
-    
-    return makespan
+    # Tracé
+    fig, ax = plt.subplots(figsize=(15, 8))
 
-# --------------------------
-# 7) Visualisation du Gantt (fonctions inchangées)
-# --------------------------
+    y_ticks_labels = []
+    y_ticks_pos = []
+    current_y = 0
+
+    for s in skills:
+        for j in range(1, max_ops + 1):
+            y_ticks_labels.append(f"S{s} Op{j}")
+            y_ticks_pos.append(current_y + 0.5)
+            current_y += 1
+
+    # Dessiner les barres
+    for task in task_schedule:
+        # Calculez la position Y
+        # Index: (s-1) * MAX_OPS + (j-1)
+        y_pos_index = (task["s"] - 1) * max_ops + (task["j"] - 1)
+        y_start = y_pos_index
+
+        ax.broken_barh([(task["start"], task["duration"])], (y_start, 1),
+                       facecolors=task["color"], edgecolor='black', alpha=0.8)
+        # Ajouter le label du patient
+        ax.text(task["start"] + task["duration"] / 2, y_start + 0.5,
+                f"P{task['i']}", ha='center', va='center', color='white', fontsize=8)
+
+    # Configuration de l'axe Y
+    ax.set_yticks(y_ticks_pos)
+    ax.set_yticklabels(y_ticks_labels)
+    ax.set_xlabel("Temps")
+    ax.set_ylabel("(Skill, Stage)")
+    ax.set_title(f"Diagramme de Gantt (Cmax = {max_cmax})")
+    ax.grid(True, axis='x', linestyle='--')
+    ax.set_xlim(0, max_cmax + 1)
+
+    # Légende
+    legend_patches = [Patch(color=colors[i], label=f"Patient {i}") for i in range(1, num_patients + 1)]
+    ax.legend(handles=legend_patches, bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    plt.show()
+
+def plot_history(history_cmax):
+    """Affiche l'historique de l'évolution du Cmax."""
+    plt.figure(figsize=(10, 5))
+    plt.plot(history_cmax, label="Cmax Courant")
+    plt.title("Évolution du Cmax pendant le Recuit Simulé")
+    plt.xlabel("Itération")
+    plt.ylabel("Cmax")
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
+# ---------------------------
+# 7) Exécution
+# ---------------------------
+start_time = time.time()
+
+# Exécution de l'algorithme SA
+best_seq, best_cmax, history = simulated_annealing(
+    T_INITIAL_BASE, ALPHA_FACTOR, RESET_INTERVAL, MAX_ITER,
+    SKILLS, MAX_OPS, TASKS_BY_SKILL_STAGE, PATIENT_LAST_STAGE
+)
+
+end_time = time.time()
+print(f"Temps d'exécution: {end_time - start_time:.2f} secondes")
+
+print("\n--- Résultats du meilleur Cmax ---")
+# Affichage d'une partie des résultats (peut être très long)
+# print("Meilleures séquences:", best_seq)
+
+# Optionnel: Tracer le Gantt
+plot_gantt(best_seq, NUM_PATIENTS, PATIENT_LAST_STAGE, MAX_OPS, SKILLS)
+
+# Optionnel: Tracer l'historique
+plot_history(history)
+
 def _patient_colors(num_patients):
     """Palette stable pour n patients (tab20)."""
     cmap = plt.colormaps.get_cmap("tab20")
-    n = min(20, num_patients) 
-    return {i+1: cmap(i / (n-1)) if n>1 else cmap(0) for i in range(num_patients)}
+    n = min(20, num_patients)
+    return {i+1: cmap(i / (n-1)) if n > 1 else cmap(0) for i in range(num_patients)}
 
 def build_gantt_data(task_times, skills):
     """
@@ -320,10 +429,10 @@ def build_gantt_data(task_times, skills):
             "patient": i, "op": j
         })
         horizon = max(horizon, finish)
-        
+
     for s in skills:
         by_skill[s].sort(key=lambda x: (x["start"], x["patient"], x["op"]))
-        
+
     return by_skill, horizon
 
 def plot_gantt(task_times, skills, num_patients, title="Gantt – Planning par compétence",
@@ -334,7 +443,7 @@ def plot_gantt(task_times, skills, num_patients, title="Gantt – Planning par c
     if horizon == 0:
         print("Makespan is 0. Cannot plot Gantt chart.")
         return
-        
+
     colors = _patient_colors(num_patients)
 
     if figsize is None:
@@ -344,97 +453,75 @@ def plot_gantt(task_times, skills, num_patients, title="Gantt – Planning par c
 
     lane_height = 0.8
     y_gap = 0.6
-    y_positions = {s: (len(skills)-idx-1)*(lane_height + y_gap) for idx, s in enumerate(skills)}
+    y_positions = {s: (len(skills) - idx - 1) * (lane_height + y_gap) for idx, s in enumerate(skills)}
     ymin = -0.5
     ymax = max(y_positions.values()) + lane_height + 0.5
 
     for s in skills:
         y = y_positions[s]
         ax.add_patch(Rectangle((0, y - 0.1), horizon, lane_height + 0.2,
-                               facecolor=(0,0,0,0.03), edgecolor="none"))
+                               facecolor=(0, 0, 0, 0.03), edgecolor="none"))
         for it in by_skill[s]:
             start = it["start"]
-            dur   = it["dur"]
-            i     = it["patient"]
-            j     = it["op"]
-            rect = Rectangle((start, y), dur, lane_height,
-                             facecolor=colors[i], edgecolor="black", linewidth=0.7)
-            ax.add_patch(rect)
+            dur = it["dur"]
+            i = it["patient"]
+            j = it["op"]
+
+            ax.broken_barh([(start, dur)], (y, lane_height),
+                           facecolors=colors[i], edgecolor='black', alpha=0.8)
             if annotate:
-                label = f"P{i}-O{j}"
-                ax.text(start + dur/2, y + lane_height/2, label,
-                        ha="center", va="center", fontsize=9)
+                ax.text(start + dur / 2, y + lane_height / 2,
+                        f"P{i}-Op{j}", ha='center', va='center', color='white', fontsize=8)
 
-    ax.set_xlim(0, math.ceil(horizon))
-    ax.set_ylim(ymin, ymax)
-    ax.set_xlabel("Temps (unités)")
-    ax.set_yticks([y_positions[s] + lane_height/2 for s in skills])
+
+    # Corrected y-ticks calculation
+    ax.set_yticks([y + lane_height / 2 for y in y_positions.values()])
     ax.set_yticklabels([f"Skill {s}" for s in skills])
+    ax.set_ylim(ymin, ymax)
+    ax.set_xlim(0, horizon)
+    ax.set_xlabel("Time")
     ax.set_title(title)
-    ax.grid(axis="x", linestyle="--", alpha=0.4)
+    ax.grid(True, axis='x', linestyle='--')
 
-    legend_handles = [Patch(facecolor=colors[i], edgecolor="black", label=f"Patient {i}") for i in range(1, num_patients + 1)]
-    ax.legend(handles=legend_handles, bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0.)
+    # Add legend
+    legend_patches = [Patch(color=colors[i], label=f"Patient {i}") for i in range(1, num_patients + 1)]
+    ax.legend(handles=legend_patches, bbox_to_anchor=(1.05, 1), loc='upper left')
 
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=dpi, bbox_inches="tight")
-        print(f"Gantt sauvegardé : {save_path}")
+        plt.savefig(save_path, dpi=dpi)
     plt.show()
 
-# --------------------------
-# 8) Main Execution: Random Start -> SA -> Evaluation
-# --------------------------
 
-# --- 1. Solution initiale ALÉATOIRE (sans correction) ---
-# La correction sera appliquée par le SA sur la meilleure solution trouvée
-initial_random_seq = build_initial_sequences(SKILLS, MAX_OPS, TASKS_BY_SKILL_STAGE)
+def build_gantt_data_from_sequences(sequences, skills):
+    """
+    Builds the task_times dictionary from the sequences dictionary.
+    """
+    task_times = {}
+    patient_finish_time = defaultdict(lambda: 0)
+    resource_available_time = defaultdict(lambda: 0)
 
-mk_initial, task_times_initial, _ = evaluate_schedule(
-    sequences=initial_random_seq, 
-    skills=SKILLS, 
-    num_patients=NUM_PATIENTS, 
-    data=DATA, 
-    patient_last_stage=PATIENT_LAST_STAGE, 
-    max_ops=MAX_OPS, 
-    return_schedule=True
-)
+    for j in range(1, MAX_OPS + 1):
+        for s in skills:
+            sequence_key = (s, j)
+            if sequence_key in sequences:
+                tasks = sequences[sequence_key]
+                for task in tasks:
+                    i, j_current, s_current, p = task.i, task.j, task.s, task.p
+                    required_previous_finish = patient_finish_time.get((i, j_current - 1), 0)
+                    required_resource_available = resource_available_time[s_current]
+                    start_time = max(required_previous_finish, required_resource_available)
+                    finish_time = start_time + p
 
-print(f"--- 1. Solution ALÉATOIRE (AVANT Recuit Simulé) ---")
-print(f"Makespan initial = {mk_initial}")
-plot_gantt(task_times_initial, SKILLS, NUM_PATIENTS, title=f"Gantt – Aléatoire initial (Cmax={mk_initial})")
+                    patient_finish_time[(i, j_current)] = finish_time
+                    resource_available_time[s_current] = finish_time
 
-# --- 2. Lancement du Recuit Simulé ---
-print("\n--- 2. Lancement du Recuit Simulé... ---")
-# Utilisation de la séquence corrigée par Patient ID comme point de départ pour une exploration plus efficace
-# Note: On utilise `correct_sequence_order` pour avoir un point de départ plus "sensé"
-sa_start_seq = correct_sequence_order(initial_random_seq, NUM_PATIENTS, MAX_OPS, SKILLS)
-sa_start_cost = evaluate_schedule(sa_start_seq, SKILLS, NUM_PATIENTS, DATA, PATIENT_LAST_STAGE, MAX_OPS)
-print(f"Makespan de départ optimisé pour SA: {sa_start_cost}")
+                    task_times[(i, j_current, s_current)] = (start_time, finish_time, p)
 
+    return task_times
 
-best_sequences_sa, mk_best_sa, history = simulated_annealing(
-    initial_sequences=sa_start_seq, 
-    skills=SKILLS, 
-    num_patients=NUM_PATIENTS, 
-    data=DATA, 
-    patient_last_stage=PATIENT_LAST_STAGE, 
-    max_ops=MAX_OPS,
-    T0=10.0, alpha=0.999, max_iter=20000 
-)
+# Build task_times from the best_seq found by SA
+task_times = build_gantt_data_from_sequences(best_seq, SKILLS)
 
-
-# --- 3. Évaluation de la solution optimale Recuit Simulé ---
-mk_best_sa, task_times_best_sa, _ = evaluate_schedule(
-    sequences=best_sequences_sa, 
-    skills=SKILLS, 
-    num_patients=NUM_PATIENTS, 
-    data=DATA, 
-    patient_last_stage=PATIENT_LAST_STAGE, 
-    max_ops=MAX_OPS, 
-    return_schedule=True
-)
-
-print(f"\n--- 3. Solution OPTIMALE Recuit Simulé ---")
-print(f"Makespan après Recuit Simulé = {mk_best_sa}")
-plot_gantt(task_times_best_sa, SKILLS, NUM_PATIENTS, title=f"Gantt – Recuit Simulé (Cmax={mk_best_sa})")
+# Visualize the final result using the provided plot_gantt function
+plot_gantt(task_times, SKILLS, NUM_PATIENTS, title=f"Final Gantt Chart (Cmax = {best_cmax})")
