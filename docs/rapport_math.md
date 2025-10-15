@@ -246,9 +246,9 @@ $$\frac{\partial C_{max}}{\partial d_{ij}} = \mathbb{1}_{\{\text{opération crit
 ### 10.4 Conclusion comparative des résultats expérimentaux
 
 L’évaluation empirique des trois méta-heuristiques implémentées a permis d’obtenir les résultats suivants sur l’ensemble de tests :
-	•	**Algorithme génétique** : $C_{max}$ = 12
-	•	**Recherche tabou** : $C_{max}$ = 12
-	•	**Recuit simulé** : $C_{max}$ = 11
+	-	**Algorithme génétique** : $C_{max}$ = 12
+	-	**Recherche tabou** : $C_{max}$ = 12
+	-	**Recuit simulé** : $C_{max}$ = 11
 
 Ces valeurs confirment la capacité des trois méthodes à converger vers des solutions optimisées tout en respectant les contraintes opérationnelles strictes (non-préemption, unicité de lancement, précédence).
 Le recuit simulé se distingue ici par une légère supériorité en termes de minimisation du temps global d’exécution, traduisant une meilleure exploration de l’espace des solutions pour ce jeu de données.
